@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Making sense of LLM evaluation for social simulation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="vendor/reveal/reveal.css">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<style>
+:root{
+  --paper:#F4F1E8; --paper2:#EAE6DA; --ink:#173033; --muted:#71807D;
+  --line:#B9C1BA; --cyan:#67C6C8; --teal:#237E7B; --coral:#E45F4D;
+  --gold:#E8B44E; --blue:#3578A8; --green:#4E9B70; --white:#FFFFFF;
+  --display:'Space Grotesk',sans-serif; --serif:'Source Serif 4',Georgia,serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box}
+@page{size:1600px 900px;margin:0}
+body{background:var(--paper)}
+.reveal{font-family:var(--display);color:var(--ink)}
+.reveal .slides{text-align:left}
+.reveal .slides section{width:100%;height:100%;padding:0;overflow:hidden;background:var(--paper)}
+.wrap{height:100%;padding:46px 64px 36px;display:flex;flex-direction:column;position:relative}
+.topline{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+.idx{font:500 15px var(--mono);color:var(--muted)}
+.kicker{font:600 15px var(--display);letter-spacing:.12em;text-transform:uppercase}
+.kicker:before{content:'';display:inline-block;width:12px;height:12px;background:var(--coral);margin-right:12px;vertical-align:-1px}
+.reveal h1,.reveal h2{font-family:var(--display);text-transform:none;color:var(--ink);letter-spacing:-.035em;margin:0;font-weight:600;text-wrap:balance}
+.reveal h1{font-size:66px;line-height:1.02}
+.reveal h2{font-size:46px;line-height:1.08}
+.serif{font-family:var(--serif);font-style:italic;font-weight:400}
+.mono{font-family:var(--mono)}
+.small{font-size:18px;color:var(--muted)}
+.tiny{font:14px var(--mono);color:var(--muted)}
+.foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);font:13px var(--mono);color:var(--muted);display:flex;justify-content:space-between;gap:20px}
+.center{align-items:center;justify-content:center;text-align:center}
+.stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:40px;flex:1;min-height:0}
+.card{border:2px solid var(--ink);background:rgba(255,255,255,.48);padding:28px;position:relative}
+.card h3{font:600 34px var(--display);margin:0 0 16px}
+.card .label{font:15px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.chip{display:inline-block;padding:7px 12px;border:1px solid var(--line);font:15px var(--mono);background:var(--paper)}
+.arrow{font:48px var(--display);color:var(--coral);align-self:center;text-align:center}
+.figure{border:1px solid var(--line);background:white;padding:10px;box-shadow:8px 8px 0 var(--paper2)}
+.figure img{display:block;width:100%;height:100%;object-fit:contain}
+.cutout{filter:drop-shadow(8px 10px 0 rgba(23,48,51,.10))}
+.on-dark{background:var(--ink)!important;color:var(--paper)}
+.on-dark h1,.on-dark h2,.on-dark .kicker,.on-dark .small{color:var(--paper)!important}
+.on-dark .idx,.on-dark .tiny{color:#A9B8B3!important}
+.on-dark .foot{border-color:#56706C;color:#A9B8B3}
+.reveal .progress{color:var(--coral);height:3px}
+.reveal .controls{color:var(--muted)}
+.reveal .slide-number{font:12px var(--mono);color:var(--muted);background:none}
+svg text{font-family:var(--display);fill:var(--ink)}
+svg .mono{font-family:var(--mono)}
+svg .muted{fill:var(--muted)}
+svg .white{fill:var(--paper)}
+.svg-stage{width:100%;height:100%}
+.matrix{display:grid;grid-template-columns:170px 1fr 1fr;grid-template-rows:90px 1fr 1fr;border-top:2px solid var(--ink);border-left:2px solid var(--ink);width:100%;height:100%}
+.matrix>div{border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;font-size:25px}
+.matrix .head{font:600 19px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--paper2);flex-direction:column}
+.matrix .focus{background:var(--cyan);font-size:34px;font-weight:600;position:relative}
+.matrix .dim{color:var(--muted);background:rgba(255,255,255,.25)}
+.posts{display:flex;gap:12px;align-items:center;justify-content:center}
+.post{width:148px;height:108px;background:white;border:2px solid var(--ink);padding:15px;position:relative;box-shadow:5px 5px 0 var(--paper2)}
+.post:before{content:'';display:block;width:36px;height:36px;border-radius:50%;background:var(--cyan);margin-bottom:12px}
+.post:after{content:'';display:block;width:90px;height:8px;background:var(--line);box-shadow:0 17px 0 var(--line)}
+.post.ai:before{background:var(--coral)}
+.mess-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 54px;margin-top:30px}
+.mess-item{font-size:23px;line-height:1.25;padding:13px 0 13px 28px;border-bottom:1px solid var(--line);position:relative}
+.mess-item:before{content:'';position:absolute;left:0;top:22px;width:11px;height:11px;background:var(--coral)}
+.mess-bottom{margin-top:26px;background:var(--ink);color:var(--paper);padding:22px 28px;font-size:25px;line-height:1.35;display:flex;align-items:center;justify-content:space-between;gap:32px}
+.secret-third{opacity:.18;cursor:pointer;transition:opacity .18s ease}
+.secret-third:hover,.secret-third.revealed{opacity:1}
+@media print{.secret-third{opacity:1!important}}
+.dose{display:flex;align-items:flex-end;gap:10px;height:170px}
+.dose .stack{width:110px;display:flex;flex-direction:column-reverse;gap:4px}
+.dose .stack i{display:block;height:17px;background:var(--cyan);border:1px solid var(--ink)}
+.legend{display:flex;gap:24px;font:16px var(--mono);color:var(--muted)}
+.legend span:before{content:'';display:inline-block;width:12px;height:12px;margin-right:8px;background:var(--cyan)}
+.legend span:nth-child(2):before{background:var(--coral)}
+.legend span:nth-child(3):before{background:var(--blue)}
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- 01 · Title card -->
+<section class="on-dark">
+  <div class="wrap" style="display:grid;grid-template-columns:1.12fr .88fr;gap:64px;align-items:center;padding:70px 86px">
+    <div style="font:400 60px/1.17 var(--serif);font-style:italic;text-align:left;max-width:850px">
+      “Everything under heaven<br>is in chaos;<br><span style="color:var(--cyan)">the situation is excellent.”</span>
+    </div>
+    <img src="figures/title_flammarion_cutout.png" alt="Flammarion engraving, transparent cutout" style="width:100%;max-height:720px;object-fit:contain;opacity:.82">
+    <aside class="notes"><p>The space is sprawling and unsettled. That is good news: there is room to make it rigorous.</p><p>Image: Flammarion engraving, unknown artist, public domain, via Wikimedia Commons. White paper background removed for this cutout.</p></aside>
+  </div>
+</section>
+
+<!-- 02 · GABMs are a mess -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">02</span><span class="kicker">The design space</span></div>
+    <h2>GABMs are a mess</h2>
+    <div class="mess-grid">
+      <div class="mess-item">How do agents connect?</div>
+      <div class="mess-item">Generate content—or only react?</div>
+      <div class="mess-item">How are they prompted?</div>
+      <div class="mess-item">Create connections—or fixed network?</div>
+      <div class="mess-item">How are they orchestrated?</div>
+      <div class="mess-item">Does the prompt / state update?</div>
+      <div class="mess-item">How are they activated?</div>
+      <div class="mess-item">Do in-simulation actions update memory / state?</div>
+      <div class="mess-item">What can each agent see at each turn?</div>
+      <div class="mess-item">Real people—or synthetic personas?</div>
+      <div class="mess-item">Are all users LLMs—or hybrid?</div>
+      <div class="mess-item">Is only one LLM used?</div>
+      <div class="mess-item">Base or post-trained?</div>
+      <div class="mess-item">Are notifications modelled?</div>
+      <div class="mess-item" style="grid-column:1 / -1">What words do we even use for these choices?</div>
+    </div>
+    <div class="mess-bottom">
+      <span>Every choice can bias—or determine—the output.</span>
+      <span style="color:var(--cyan)">Results and claims of validity are rarely comparable.</span>
+    </div>
+    <div class="foot"><span>Too many degrees of freedom.</span><span>02 / 16</span></div>
+    <aside class="notes"><p>Every one of these choices can heavily bias, change, or determine what comes out of a simulation. And because every simulator makes a different bundle of choices, simulations are difficult to compare, as are their claims to validity.</p><p>We cannot deal with all of that at once. So I am starting from the basics: name the axes, isolate one cell, and make the measurement precise.</p></aside>
+  </div>
+</section>
+
+<!-- 03 · Agentic / non-agentic -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">03</span><span class="kicker">Simulation</span></div>
+    <h2>Agentic <span class="serif">/</span> non-agentic</h2>
+    <div class="two" style="margin-top:28px;grid-template-columns:1fr 1fr">
+      <div class="card" style="display:grid;grid-template-columns:1fr 190px;align-items:center">
+        <div>
+          <div class="label">loop</div>
+          <h3>Agentic</h3>
+          <svg viewBox="0 0 520 330" style="width:100%;height:330px" aria-label="Agentic perceive plan act loop">
+            <defs><marker id="a1" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#E45F4D"/></marker></defs>
+            <g font-size="26" text-anchor="middle">
+              <rect x="35" y="115" width="130" height="76" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="100" y="162">perceive</text>
+              <rect x="195" y="25" width="130" height="76" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="260" y="72">plan</text>
+              <rect x="355" y="115" width="130" height="76" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="420" y="162">act</text>
+              <rect x="195" y="220" width="130" height="76" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="260" y="267">remember</text>
+              <path d="M165 135 L220 95" stroke="#E45F4D" stroke-width="5" fill="none" marker-end="url(#a1)"/>
+              <path d="M300 95 L380 135" stroke="#E45F4D" stroke-width="5" fill="none" marker-end="url(#a1)"/>
+              <path d="M390 190 L300 230" stroke="#E45F4D" stroke-width="5" fill="none" marker-end="url(#a1)"/>
+              <path d="M195 245 C60 245 55 210 75 195" stroke="#E45F4D" stroke-width="5" fill="none" marker-end="url(#a1)"/>
+            </g>
+          </svg>
+        </div>
+        <img class="cutout" src="figures/07_robot_cutout.png" alt="Robot cutout" style="width:190px">
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;justify-content:center">
+        <div class="label">one mapping</div>
+        <h3>Non-agentic</h3>
+        <svg viewBox="0 0 620 330" style="width:100%;height:330px" aria-label="Prompt to model to next post">
+          <defs><marker id="a2" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#E45F4D"/></marker></defs>
+          <g font-size="27" text-anchor="middle">
+            <rect x="20" y="105" width="155" height="110" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="97" y="153">user</text><text x="97" y="188" class="muted" font-size="21">context</text>
+            <circle cx="310" cy="160" r="72" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="310" y="170">LLM</text>
+            <rect x="445" y="105" width="155" height="110" fill="white" stroke="#173033" stroke-width="3"/><text x="522" y="153">next</text><text x="522" y="188">post</text>
+            <path d="M175 160 L236 160" stroke="#E45F4D" stroke-width="6" marker-end="url(#a2)"/>
+            <path d="M382 160 L443 160" stroke="#E45F4D" stroke-width="6" marker-end="url(#a2)"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="foot"><span>What kind of machine is doing the simulating?</span><span>03 / 16</span></div>
+    <aside class="notes"><p>Start with the first distinction. Agentic simulations give the model memory, tools, goals and an action loop. Non-agentic simulation is one mapping from a user context to a next output. Our work isolates the second, because it is the building block inside the first.</p></aside>
+  </div>
+</section>
+
+<!-- 02 · Single-turn / multi-turn -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">04</span><span class="kicker">Time</span></div>
+    <h2>Single-turn <span class="serif">/</span> multi-turn</h2>
+    <div class="two" style="margin-top:30px">
+      <div class="card">
+        <div class="label">one observed action</div>
+        <h3>Single-turn</h3>
+        <svg viewBox="0 0 640 340" style="width:100%;height:350px">
+          <defs><marker id="a3" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#E45F4D"/></marker></defs>
+          <line x1="55" y1="245" x2="585" y2="245" stroke="#173033" stroke-width="3"/>
+          <g font-size="25" text-anchor="middle">
+            <circle cx="150" cy="245" r="13" fill="#173033"/><text x="150" y="292" class="mono">t</text>
+            <rect x="65" y="90" width="170" height="100" fill="white" stroke="#173033" stroke-width="3"/><text x="150" y="150">real post</text>
+            <circle cx="435" cy="245" r="13" fill="#E45F4D"/><text x="435" y="292" class="mono">score</text>
+            <path d="M235 145 C340 145 340 210 427 238" stroke="#E45F4D" stroke-width="5" fill="none" marker-end="url(#a3)"/>
+          </g>
+        </svg>
+      </div>
+      <div class="card">
+        <div class="label">a trajectory</div>
+        <h3>Multi-turn</h3>
+        <svg viewBox="0 0 640 340" style="width:100%;height:350px">
+          <defs><marker id="a4" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#E45F4D"/></marker><marker id="a4teal" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#67C6C8"/></marker></defs>
+          <line x1="45" y1="245" x2="600" y2="245" stroke="#173033" stroke-width="3"/>
+          <g font-size="23" text-anchor="middle">
+            <g><rect x="35" y="90" width="135" height="95" fill="white" stroke="#173033" stroke-width="3"/><text x="102" y="146">post</text><circle cx="102" cy="245" r="12" fill="#173033"/><text x="102" y="292" class="mono">t₁</text></g>
+            <g><rect x="250" y="90" width="135" height="95" fill="white" stroke="#173033" stroke-width="3"/><text x="317" y="146">react</text><circle cx="317" cy="245" r="12" fill="#173033"/><text x="317" y="292" class="mono">t₂</text></g>
+            <g><rect x="465" y="90" width="135" height="95" fill="white" stroke="#173033" stroke-width="3"/><text x="532" y="146">reply</text><circle cx="532" cy="245" r="12" fill="#173033"/><text x="532" y="292" class="mono">t₃</text></g>
+            <path d="M170 137 L248 137" stroke="#E45F4D" stroke-width="5" marker-end="url(#a4)"/><path d="M385 137 L463 137" stroke="#E45F4D" stroke-width="5" marker-end="url(#a4)"/>
+            <path d="M530 190 C480 330 160 330 105 190" stroke="#67C6C8" stroke-width="5" fill="none" marker-end="url(#a4teal)"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="foot"><span>One action, or a world that feeds back?</span><span>04 / 16</span></div>
+    <aside class="notes"><p>The second distinction is time. Single-turn evaluation looks at one observed action. Multi-turn evaluation follows a trajectory, with feedback and state. If the single-step generator is wrong, the multi-step world is built on a weak foundation.</p></aside>
+  </div>
+</section>
+
+<!-- 03 · Plausibility -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">05</span><span class="kicker">Evaluation A</span></div>
+    <div style="display:grid;grid-template-columns:.36fr .64fr;gap:44px;flex:1;min-height:0;align-items:center">
+      <div>
+        <h1 class="serif">Plausibility</h1>
+        <div style="font-size:36px;margin-top:34px">real <span style="color:var(--coral)">/</span> not real</div>
+        <div class="posts" style="margin-top:44px"><div class="post"></div><div class="post ai"></div></div>
+        <div style="font:600 26px var(--display);margin-top:34px;color:var(--teal)">SocialSimBench</div>
+      </div>
+      <div class="figure" style="height:600px;transform:rotate(1deg)"><img src="figures/socialsimbench.png" alt="Social Turing Arena website"></div>
+    </div>
+    <div class="foot"><span>Could this user have written it?</span><span>socialsimbench.com · 05 / 16</span></div>
+    <aside class="notes"><p>Plausibility asks whether a post could have come from this user. SocialSimBench turns that into a Turing-style discrimination task: two posts, one human and one possibly generated, and the player picks the human. This captures the many-worlds side of evaluation.</p></aside>
+  </div>
+</section>
+
+<!-- 04 · Realisticness -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">06</span><span class="kicker">Evaluation B</span></div>
+    <div style="display:grid;grid-template-columns:.38fr .62fr;gap:44px;flex:1;min-height:0;align-items:center">
+      <div>
+        <h1 class="serif">Realisticness</h1>
+        <div style="font:600 30px var(--display);color:var(--teal);margin-top:28px">Persona Sweep</div>
+        <img src="figures/02_social_network_moreno.png" alt="Historical sociogram" style="width:390px;margin-top:25px;mix-blend-mode:multiply">
+      </div>
+      <svg viewBox="0 0 900 570" style="width:100%;height:570px" aria-label="User context to probability of real post">
+        <defs><marker id="a5" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#E45F4D"/></marker></defs>
+        <g font-size="26" text-anchor="middle">
+          <rect x="25" y="65" width="210" height="125" fill="white" stroke="#173033" stroke-width="3"/><text x="130" y="120">this user</text><text x="130" y="158" class="muted" font-size="22">history + context</text>
+          <circle cx="440" cy="128" r="82" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="440" y="139">LLM</text>
+          <path d="M235 128 L356 128" stroke="#E45F4D" stroke-width="6" marker-end="url(#a5)"/>
+          <text x="440" y="277" class="mono" font-size="30">P(post | user)</text>
+          <g font-size="22">
+            <rect x="95" y="350" width="160" height="92" fill="#F4F1E8" stroke="#B9C1BA" stroke-width="2"/><text x="175" y="405" class="muted">possible</text>
+            <rect x="280" y="350" width="160" height="92" fill="#F4F1E8" stroke="#B9C1BA" stroke-width="2"/><text x="360" y="405" class="muted">possible</text>
+            <rect x="465" y="335" width="190" height="120" fill="#E8B44E" stroke="#173033" stroke-width="4"/><text x="560" y="390" font-weight="600">REAL</text><text x="560" y="426">post</text>
+            <rect x="680" y="350" width="160" height="92" fill="#F4F1E8" stroke="#B9C1BA" stroke-width="2"/><text x="760" y="405" class="muted">possible</text>
+          </g>
+          <path d="M440 215 L440 300 L560 300 L560 333" stroke="#E45F4D" stroke-width="5" fill="none" marker-end="url(#a5)"/>
+          <text x="450" y="525" class="mono" font-size="27">score what actually happened</text>
+        </g>
+      </svg>
+    </div>
+    <div class="foot"><span>How likely is the post the user actually wrote?</span><span>Sociogram: Martin Grandjean, CC BY-SA 4.0 · 06 / 16</span></div>
+    <aside class="notes"><p>Realisticness is narrower and exact. We take the post the user actually wrote and ask how much probability the model assigns to it, given that user. Plausible alternatives may be good simulations, but they are not the observed behavior. This is the micro-level, single-step measurement.</p></aside>
+  </div>
+</section>
+
+<!-- 05 · Our corner -->
+<section class="on-dark">
+  <div class="wrap">
+    <div class="topline"><span class="idx">07</span><span class="kicker">The map</span></div>
+    <h2 style="margin-bottom:32px">My corner</h2>
+    <div class="stage">
+      <div class="matrix" style="height:570px">
+        <div class="head" style="background:#28474A;color:#F4F1E8"></div>
+        <div class="head" style="background:#28474A;color:#F4F1E8">non-agentic</div>
+        <div class="head" style="background:#28474A;color:#F4F1E8">agentic</div>
+        <div class="head" style="background:#28474A;color:#F4F1E8">single-turn</div>
+        <div class="focus">PERSONA<br>SWEEP</div>
+        <div class="dim" style="color:#B4C0BC;background:#1D393C;line-height:1.35">Park et al.<br>survey agents</div>
+        <div class="head" style="background:#28474A;color:#F4F1E8">multi-turn</div>
+        <div class="dim" style="color:#B4C0BC;background:#1D393C;font-size:44px">?</div>
+        <div class="dim" style="color:#B4C0BC;background:#1D393c">OASIS · SimUSER<br>Concordia · Y Social</div>
+      </div>
+    </div>
+    <div class="foot"><span>Isolate the building block.</span><span>07 / 16</span></div>
+    <aside class="notes"><p>This is our position: non-agentic and single-turn. Park et al. refers to the 1,052-person survey study, LLM Agents Grounded in Self-Reports Enable General-Purpose Simulation of Individuals. Each response is single-step, but the system adds reflections and retrieval, so it sits closer to a light agent. OASIS, SimUSER, Concordia and Y Social run agents over time. We deliberately isolate the generator underneath those systems.</p></aside>
+  </div>
+</section>
+
+<!-- 06 · Perplexity -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">08</span><span class="kicker">The measure</span></div>
+    <h2>Perplexity</h2>
+    <div style="display:grid;grid-template-columns:.68fr .32fr;gap:40px;align-items:center;flex:1">
+      <svg viewBox="0 0 980 500" style="width:100%;height:500px" aria-label="Perplexity scale from perfect prediction to no chance">
+        <defs><marker id="a6" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#173033"/></marker></defs>
+        <text x="490" y="70" text-anchor="middle" class="mono" font-size="32">−log₂ P(real post) / bytes</text>
+        <line x1="110" y1="240" x2="844" y2="240" stroke="#173033" stroke-width="5" marker-end="url(#a6)"/>
+        <circle cx="110" cy="240" r="22" fill="#237E7B"/>
+        <circle cx="870" cy="240" r="22" fill="#E45F4D"/>
+        <g text-anchor="middle">
+          <text x="110" y="190" font-size="38" font-weight="600">PPL → 1</text>
+          <text x="110" y="305" class="mono" font-size="25">0 b/B</text>
+          <text x="110" y="355" font-size="27">the real post</text>
+          <text x="870" y="190" font-size="38" font-weight="600">PPL → ∞</text>
+          <text x="870" y="305" class="mono" font-size="25">∞ b/B</text>
+          <text x="870" y="355" font-size="27">no chance</text>
+        </g>
+        <text x="490" y="445" text-anchor="middle" class="mono" font-size="27" fill="#237E7B">lower = better · comparable across tokenizers</text>
+      </svg>
+      <img src="figures/03_measurement_bourdon_gauge.png" alt="Vintage pressure gauge" style="width:100%;max-height:510px;object-fit:contain;mix-blend-mode:multiply">
+    </div>
+    <div class="foot"><span>Likelihood of behavior, not a judge’s taste.</span><span>Gauge: public domain · 08 / 16</span></div>
+    <aside class="notes"><p>The metric is the likelihood of the real post. We report bits per byte so that models with different tokenizers can be compared. At perplexity one the real post is certain; as perplexity grows, the model assigns it less and less probability. This is a proxy for realism, not a measure of semantic quality or stance.</p></aside>
+  </div>
+</section>
+
+<!-- 07 · Personas -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">09</span><span class="kicker">Experimental axis 1</span></div>
+    <h2>Personas</h2>
+    <div style="display:grid;grid-template-columns:.25fr .75fr;gap:40px;align-items:center;flex:1;min-height:0">
+      <div>
+        <img src="figures/01_taxonomy_linnaeus.png" alt="Linnaeus classification table" style="width:100%;mix-blend-mode:multiply;opacity:.85">
+        <div class="tiny" style="margin-top:12px">What does the model know?</div>
+      </div>
+      <svg viewBox="0 0 1080 570" style="width:100%;height:570px" aria-label="Taxonomy of persona context">
+        <defs><marker id="a7" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#E45F4D"/></marker></defs>
+        <g font-size="25" text-anchor="middle">
+          <rect x="355" y="20" width="370" height="82" fill="#173033"/><text x="540" y="72" class="white" font-size="29">user representation</text>
+          <path d="M540 102 L540 145 L185 145 L185 183" stroke="#E45F4D" stroke-width="4" fill="none" marker-end="url(#a7)"/>
+          <path d="M540 102 L540 183" stroke="#E45F4D" stroke-width="4" fill="none" marker-end="url(#a7)"/>
+          <path d="M540 102 L540 145 L895 145 L895 183" stroke="#E45F4D" stroke-width="4" fill="none" marker-end="url(#a7)"/>
+          <rect x="45" y="185" width="280" height="75" fill="#E8B44E" stroke="#173033" stroke-width="3"/><text x="185" y="233">descriptions</text>
+          <rect x="400" y="185" width="280" height="75" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="540" y="233">writing</text>
+          <rect x="755" y="185" width="280" height="75" fill="#E45F4D" stroke="#173033" stroke-width="3"/><text x="895" y="233" class="white">platform context</text>
+          <g font-size="23">
+            <rect x="55" y="320" width="260" height="72" fill="white" stroke="#173033" stroke-width="2"/><text x="185" y="365">own bio · P1</text>
+            <rect x="55" y="420" width="260" height="72" fill="white" stroke="#173033" stroke-width="2"/><text x="185" y="465">LLM biography · P3</text>
+            <rect x="410" y="305" width="260" height="65" fill="white" stroke="#173033" stroke-width="2"/><text x="540" y="347">own posts · P0</text>
+            <rect x="410" y="390" width="260" height="65" fill="white" stroke="#173033" stroke-width="2"/><text x="540" y="432">3 representative · P7</text>
+            <rect x="410" y="475" width="260" height="65" fill="white" stroke="#173033" stroke-width="2"/><text x="540" y="517">older posts · P8</text>
+            <rect x="765" y="305" width="260" height="65" fill="white" stroke="#173033" stroke-width="2"/><text x="895" y="347">feed</text>
+            <rect x="765" y="390" width="260" height="65" fill="white" stroke="#173033" stroke-width="2"/><text x="895" y="432">reposts</text>
+            <rect x="765" y="475" width="260" height="65" fill="white" stroke="#173033" stroke-width="2"/><text x="895" y="517">likes</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <div class="foot"><span>Description, demonstration, or environment?</span><span>Linnaeus: public domain · 09 / 16</span></div>
+    <aside class="notes"><p>The first experimental axis is the user representation. We separate written descriptions, examples of the user's writing, and platform context. That includes the user's own bio, an LLM-written biography, recent and representative posts, length-matched older posts, and what the user read, reposted and liked.</p></aside>
+  </div>
+</section>
+
+<!-- 08 · Models -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">10</span><span class="kicker">Experimental axis 2</span></div>
+    <h2>Models</h2>
+    <div class="stage">
+      <svg viewBox="0 0 1400 700" style="width:100%;height:590px" aria-label="Four model axes: size, training, prompt format and reasoning">
+        <defs><marker id="a8" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#173033"/></marker></defs>
+        <g text-anchor="middle">
+          <text x="700" y="34" class="mono" font-size="23">same users · same posts · same metric</text>
+
+          <text x="65" y="135" class="mono" font-size="22" text-anchor="start">SIZE</text>
+          <line x1="285" y1="125" x2="1250" y2="125" stroke="#173033" stroke-width="4" marker-end="url(#a8)"/>
+          <g font-size="23">
+            <circle cx="340" cy="125" r="18" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="340" y="207" class="mono">0.5B</text>
+            <circle cx="590" cy="125" r="29" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="590" y="207" class="mono">4B</text>
+            <circle cx="850" cy="125" r="42" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="850" y="207" class="mono">27B</text>
+            <circle cx="1160" cy="125" r="61" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="1160" y="207" class="mono">1T</text>
+          </g>
+          <line x1="65" y1="225" x2="1335" y2="225" stroke="#B9C1BA" stroke-width="2"/>
+
+          <text x="65" y="320" class="mono" font-size="22" text-anchor="start">TRAINING</text>
+          <rect x="280" y="260" width="340" height="100" fill="#67C6C8" stroke="#173033" stroke-width="3"/>
+          <text x="450" y="320" font-size="29">base model</text>
+          <rect x="810" y="260" width="430" height="100" fill="#E45F4D" stroke="#173033" stroke-width="3"/>
+          <text x="1025" y="320" font-size="29" class="white">post-trained model</text>
+          <path d="M655 310 L775 310" stroke="#173033" stroke-width="3"/>
+          <path d="M665 300 L645 310 L665 320 M765 300 L785 310 L765 320" stroke="#173033" stroke-width="3" fill="none"/>
+          <text x="720" y="350" class="mono" font-size="18">paired release</text>
+          <line x1="65" y1="405" x2="1335" y2="405" stroke="#B9C1BA" stroke-width="2"/>
+
+          <text x="65" y="505" class="mono" font-size="22" text-anchor="start">FORMAT</text>
+          <g font-size="26">
+            <rect x="280" y="455" width="250" height="82" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="405" y="507" class="mono">raw</text>
+            <rect x="655" y="455" width="250" height="82" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="780" y="507" class="mono">document</text>
+            <rect x="990" y="455" width="250" height="82" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="1115" y="507" class="mono">chat</text>
+          </g>
+          <line x1="65" y1="575" x2="1335" y2="575" stroke="#B9C1BA" stroke-width="2"/>
+          <text x="65" y="655" class="mono" font-size="22" text-anchor="start">REASONING</text>
+          <rect x="490" y="600" width="210" height="70" fill="#F4F1E8" stroke="#173033" stroke-width="3"/><text x="595" y="646" class="mono" font-size="25">off</text>
+          <rect x="745" y="600" width="210" height="70" fill="#67C6C8" stroke="#173033" stroke-width="3"/><text x="850" y="646" class="mono" font-size="25">on</text>
+        </g>
+      </svg>
+    </div>
+    <div class="foot"><span>Size × training × format × reasoning.</span><span>10 / 16</span></div>
+    <aside class="notes"><p>The second axis is the model. We sweep size, families, base versus post-trained checkpoints, raw, document and chat formats, and reasoning off versus on before scoring. The important rigor is that the users, posts and metric stay fixed while these factors change.</p></aside>
+  </div>
+</section>
+
+<!-- 09 · Context dose -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">11</span><span class="kicker">Experimental axis 3</span></div>
+    <h2>Dosed persona context</h2>
+    <div style="display:grid;grid-template-columns:.43fr .57fr;gap:50px;align-items:center;flex:1">
+      <div>
+        <div class="dose">
+          <div class="stack" data-n="0"></div>
+          <div class="stack"><i></i></div>
+          <div class="stack"><i></i><i></i><i></i></div>
+          <div class="stack"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="stack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="stack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="stack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;width:100%;font:20px var(--mono);margin-top:18px"><span>k=0</span><span>1</span><span>3</span><span>5</span><span>10</span><span>20</span><span>50</span></div>
+        <div class="legend" style="margin-top:50px"><span>this user</span><span>another user (control)</span></div>
+      </div>
+      <svg viewBox="0 0 760 500" style="width:100%;height:500px" aria-label="Diminishing returns from own posts and other-user control">
+        <defs><marker id="a9" markerWidth="5" markerHeight="5" refX="8" refY="3" orient="auto" viewBox="0 0 10 6"><path d="M0,0 L0,6 L9,3 z" fill="#173033"/></marker></defs>
+        <line x1="95" y1="405" x2="690" y2="405" stroke="#173033" stroke-width="4" marker-end="url(#a9)"/>
+        <line x1="95" y1="405" x2="95" y2="55" stroke="#173033" stroke-width="4" marker-end="url(#a9)"/>
+        <path d="M100 390 C180 300 230 205 315 150 C430 80 550 88 675 78" fill="none" stroke="#67C6C8" stroke-width="12"/>
+        <path d="M100 392 C220 340 300 295 390 280 C490 265 570 275 675 270" fill="none" stroke="#E45F4D" stroke-width="8" stroke-dasharray="17 13"/>
+        <text x="705" y="435" class="mono" font-size="25">k</text>
+        <text x="45" y="45" class="mono" font-size="23">realism</text>
+        <circle cx="675" cy="78" r="12" fill="#67C6C8"/><circle cx="675" cy="270" r="12" fill="#E45F4D"/>
+      </svg>
+    </div>
+    <div class="foot"><span>How much is dose—and how much is this user?</span><span>11 / 16</span></div>
+    <aside class="notes"><p>We dose the user's own writing from zero to fifty posts. Then the control asks the crucial question: is the gain really about this person, or would another user's posts produce the same improvement? That separates user-specific signal from generic exposure to social-media text.</p></aside>
+  </div>
+</section>
+
+<!-- 10 · Datasets -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">12</span><span class="kicker">Replication</span></div>
+    <h2>2 platforms <span class="serif">×</span> 2 eras</h2>
+    <div class="stage">
+      <div class="matrix" style="grid-template-columns:220px 1fr 1fr;grid-template-rows:100px 1fr 1fr;height:560px">
+        <div class="head"></div><div class="head" style="font-size:29px">Bluesky</div><div class="head" style="font-size:29px">Reddit</div>
+        <div class="head">old<br><span style="font-size:15px;margin-top:8px">Sep 2023–Feb 2024</span></div>
+        <div style="flex-direction:column;background:rgba(103,198,200,.22)"><strong style="font-size:42px">10,000</strong><span class="mono">users</span><strong style="font-size:42px;margin-top:18px">50,000</strong><span class="mono">posts</span></div>
+        <div style="flex-direction:column"><strong style="font-size:42px">10,000</strong><span class="mono">users</span><strong style="font-size:42px;margin-top:18px">50,000</strong><span class="mono">posts</span></div>
+        <div class="head">new<br><span style="font-size:15px;margin-top:8px">Mar–May 2026</span></div>
+        <div style="flex-direction:column"><strong style="font-size:42px">9,977</strong><span class="mono">users</span><strong style="font-size:42px;margin-top:18px">49,885</strong><span class="mono">posts</span></div>
+        <div style="flex-direction:column;background:rgba(103,198,200,.22)"><strong style="font-size:42px">10,000</strong><span class="mono">users</span><strong style="font-size:42px;margin-top:18px">50,000</strong><span class="mono">posts</span></div>
+      </div>
+    </div>
+    <div class="foot"><span>Same renderer. Same task. Four groups.</span><span>12 / 16</span></div>
+    <aside class="notes"><p>The design replicates the same measurement across Bluesky and Reddit, and across an old and a contemporary window. Each group contains roughly ten thousand ordinary users and fifty thousand target posts. The point is to stop a result depending on one platform, one year, or one convenience sample.</p></aside>
+  </div>
+</section>
+
+<!-- Scale -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">13</span><span class="kicker">The sweep</span></div>
+    <h2>Scale</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:38px">
+      <div class="card" style="height:225px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font:600 76px var(--display);color:var(--teal)">34</div><div style="font-size:23px;margin-top:12px">base models</div>
+      </div>
+      <div class="card" style="height:225px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font:600 76px var(--display);color:var(--coral)">71</div><div style="font-size:23px;margin-top:12px">post-trained models</div>
+      </div>
+      <div class="card" style="height:225px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font:600 76px var(--display);color:var(--teal)">18</div><div style="font-size:23px;margin-top:12px">persona approaches</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:24px;margin-top:24px">
+      <div class="card" style="height:245px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font:600 76px var(--display)">417M</div><div style="font-size:23px;margin-top:8px">post scores</div><div class="tiny" style="margin-top:14px">8,619 experiments</div>
+      </div>
+      <div class="card" style="height:245px;display:flex;flex-direction:column;justify-content:center;background:var(--ink);color:var(--paper)">
+        <div style="font:600 70px var(--display);color:var(--cyan)">&gt;8,746</div><div style="font-size:23px;margin-top:8px">GPU-hours</div><div class="tiny" style="margin-top:14px;color:#A9B8B3">recorded lower bound</div>
+      </div>
+    </div>
+    <div class="foot"><span>Model card · completeness tables · compute records</span><span>13 / 16</span></div>
+    <aside class="notes"><p>Scale: the model card contains 34 base and 71 post-trained models. The literature map covers 18 prompt approaches. The current completeness table contains 8,619 model-by-context-by-group experiments and 417,411,713 scored posts.</p><p>The GPU figure is a lower bound from the measured meeting brief: 5,412 H100-hours at Linz, 2,240 at Vienna, and 1,094 H200-hours at GSC1. It excludes Leonardo, Innsbruck, lab cards, and later work, so actual compute is higher.</p></aside>
+  </div>
+</section>
+
+<!-- Pareto -->
+<section>
+  <div class="wrap" style="padding-top:34px">
+    <div class="topline" style="margin-bottom:8px"><span class="idx">14</span><span class="kicker">Current results</span></div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:30px">
+      <h2>Compute <span class="serif">×</span> context</h2>
+      <span class="mono" style="font-size:19px;color:var(--teal)">lower = better</span>
+    </div>
+    <div class="stage" style="margin-top:8px">
+      <img src="figures/flops_pareto.png" alt="Pareto plots across Bluesky and Reddit, old and new" style="width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply">
+    </div>
+    <div class="foot"><span>Inference FLOPs → · bits / byte of the real post ↓</span><span>14 / 16</span></div>
+    <aside class="notes"><p>This is the current four-group picture. Each point is a model, format and persona condition. The frontier makes the trade-off between inference compute and likelihood visible. Own-post conditions dominate much of that frontier; simply using a larger model is not the whole story.</p></aside>
+  </div>
+</section>
+
+<!-- 12 · Persona approaches -->
+<section class="on-dark">
+  <div class="wrap">
+    <div class="topline"><span class="idx">15</span><span class="kicker">The practical answer</span></div>
+    <div style="display:grid;grid-template-columns:.34fr .66fr;gap:34px;flex:1;min-height:0;align-items:center">
+      <div>
+        <h1>Show user<br><span class="serif" style="color:var(--cyan)">traces.</span></h1>
+        <div style="margin-top:45px;display:flex;flex-direction:column;gap:15px;font-size:23px">
+          <div class="chip" style="color:var(--ink);border-color:var(--green)"><b style="color:var(--green)">P8</b> · older own posts</div>
+          <div class="chip" style="color:var(--ink);border-color:var(--blue)"><b style="color:var(--blue)">P7</b> · 3 representative posts</div>
+          <div class="chip" style="color:var(--ink);border-color:var(--coral)"><b style="color:var(--coral)">P3</b> · LLM biography</div>
+        </div>
+        <div style="font:24px var(--mono);color:var(--paper);margin-top:38px">posts <span style="color:var(--cyan)">&gt;</span> descriptions</div>
+      </div>
+      <div class="figure" style="height:650px;background:white;box-shadow:8px 8px 0 #28474A">
+        <img src="figures/persona_effects.png" alt="Persona effects by dataset and context size">
+      </div>
+    </div>
+    <div class="foot"><span>negative change = persona helps · same model, format and k</span><span>15 / 16</span></div>
+    <aside class="notes"><p>The practical answer is to show the model what the user wrote. Older own posts are strongest when there is no recent writing in the prompt. Representative posts also help. An LLM-written biography is a substitute when no posts are available, and its benefit largely disappears or reverses once real posts are present.</p><p>Final line: show user traces. Descriptions compress a person; traces preserve the behavior we are trying to predict.</p></aside>
+  </div>
+</section>
+
+<!-- 15 · Training -->
+<section>
+  <div class="wrap">
+    <div class="topline"><span class="idx">16</span><span class="kicker">Next</span></div>
+    <h2>How do we leverage this for training?</h2>
+    <div class="stage">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:300px;width:100%;align-items:center">
+        <div class="card" style="height:280px;display:flex;align-items:center;justify-content:center;background:var(--cyan)">
+          <div style="font:600 43px var(--display)">pretraining</div>
+        </div>
+        <div class="card" style="height:280px;display:flex;align-items:center;justify-content:center;background:var(--coral)">
+          <div style="font:600 43px var(--display);color:var(--paper)">post-training</div>
+        </div>
+      </div>
+      <div class="secret-third" onclick="this.classList.toggle('revealed')" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-7deg);width:225px;height:135px;background:var(--gold);border:3px solid var(--ink);box-shadow:9px 9px 0 var(--paper2);display:flex;align-items:center;justify-content:center;z-index:3">
+        <div style="font:600 30px var(--display)">midtraining</div>
+      </div>
+    </div>
+    <div class="foot"><span>User traces → training signal</span><span>16 / 16</span></div>
+    <aside class="notes"><p>If these user traces give us a rigorous measure of real behavior, they can also become a training signal. Pretraining, post-training—and yes, there is a secret third box: midtraining.</p></aside>
+  </div>
+</section>
+
+</div></div>
+<script src="vendor/reveal/reveal.js"></script>
+<script>
+Reveal.initialize({
+  width:1600,height:900,margin:0,minScale:.2,maxScale:2,
+  center:false,controls:true,progress:true,hash:true,
+  transition:'fade',transitionSpeed:'fast',slideNumber:'c/t'
+});
+</script>
+</body>
+</html>
